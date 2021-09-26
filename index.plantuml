@@ -1,0 +1,90 @@
+@startuml 
+ 
+skinparam shadowing false 
+skinparam sequenceMessageAlign center 
+'skinparam maxMessageSize 200
+skinparam NoteFontSize 7
+skinparam NoteBorderColor transparent
+
+skinparam sequence {
+ArrowColor Black
+LifeLineBorderColor Black
+
+ParticipantBorderColor Black
+ParticipantBackgroundColor transparent
+
+ActorBorderColor Black
+ActorBackgroundColor transparent
+ActorFontColor Black
+  
+ParticipantPadding 30
+}
+
+
+ 
+actor Actor 
+participant FTP 
+participant "Price-import" as Import 
+participant Kafka 
+participant "Price-service" as Service 
+participant "База данных" as Base 
+participant WebStore as Store 
+participant Indexer 
+
+Actor o-> FTP : кто-то положил файл \nи запустил импорт
+activate Import
+
+Import -> FTP : получаем файл
+activate FTP
+return csv файл
+
+rnote right of FTP #White: <color: Red> вмсете с ценами еще \n <color: Red> приходит статус товара  
+
+Import -> Kafka : прайс лист
+activate Kafka
+deactivate Import
+deactivate Kafka
+
+Service -> Kafka : читаем сообщение 
+activate Service
+activate Kafka
+return прайс лист
+
+Service -> Base : запись прайса в БД
+activate Base
+return sucess
+
+Service -> Kafka : сигнал на\nинвалидацию кеша\nи страта индексации 
+activate Kafka
+deactivate Kafka
+
+Service -> Kafka : данные для\nформирования\nлог файла
+activate Kafka
+deactivate Service
+deactivate Kafka
+
+Indexer -> Kafka : читаем сообщение 
+activate Kafka
+activate Indexer
+Store -> Kafka : читаем сообщение 
+activate Store
+Kafka --> Store : данные для инвалидации кеша
+deactivate Store
+return данные для инвалидации кеша
+deactivate Indexer
+
+rnote right #White : добавление slu в индексацию
+
+Import -> Kafka : читаем сообщение
+activate Import
+activate Kafka
+return данные для лога
+
+Import -> FTP : log файл
+deactivate Import
+activate FTP 
+
+FTP -> Actor : кто-то читает \nрезультат импорта
+deactivate FTP
+ 
+@enduml
